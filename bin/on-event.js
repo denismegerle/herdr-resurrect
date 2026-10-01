@@ -40,7 +40,7 @@ async function main() {
   if (model) {
     await new Promise((r) => setTimeout(r, settings.autoRestoreSettleMs)); // let herdr finish recreating panes
     try {
-      const res = restore(model, { mode: 'rehydrate', log: (l) => console.log('[auto-restore] ' + l) });
+      const res = restore(model, { mode: 'rehydrate', busyRetryMs: 15000, log: (l) => console.log('[auto-restore] ' + l) });
       console.log(`herdr-resurrect: auto-restore ran ${res.actions.length} action(s) on boot`);
     } catch (e) {
       console.error('herdr-resurrect auto-restore failed:', e.message);

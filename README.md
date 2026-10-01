@@ -170,7 +170,11 @@ own.
 How it works: herdr has no "server ready" plugin event yet, so the plugin detects a
 fresh boot from herdr's socket file (rewritten on every start) and lets the **first**
 event handler claim that boot, rehydrate once, and stand the others down — reading the
-good pre-crash snapshot *before* autosave can overwrite it. It's off by default so it
+good pre-crash snapshot *before* autosave can overwrite it. On boot, restored
+shells may briefly have foreground startup processes; the plugin waits up to 15 s
+**total** for them to become idle before skipping a still-busy pane. A skipped
+pane is never overwritten. Snapshots under `snapshots/` remain available even if
+`last.json` is refreshed with the post-boot state. It's off by default so it
 never surprises you (tmux-continuum's auto-restore is opt-in too). A first-class
 `server.ready` event would be cleaner — see **Upstream** below.
 
@@ -178,7 +182,8 @@ never surprises you (tmux-continuum's auto-restore is opt-in too). A first-class
 
 When relaunching an agent pane, the plugin uses the agent CLI's own resume/continue
 flags where known — e.g. `claude --resume <id>` when herdr captured a native session
-ref, else `claude --continue`; `codex resume`. Unknown agents relaunch fresh (and
+ref, else `claude --continue`; `codex resume`; `pi --session <path>` when a
+Pi session path was captured, else `pi --continue`. Unknown agents relaunch fresh (and
 herdr's own `resume_agents_on_restore` may still rejoin the session). Agents are
 relaunched by short name (`claude`) so they run in both PowerShell and POSIX shells.
 Override per agent via `agentResumeCommands` in `settings.json`.
@@ -222,7 +227,10 @@ everything. Agents are handled automatically and are **not** listed here.
 | `HERDR_RESURRECT_KEEP` | `20` | snapshots to retain before pruning |
 
 Snapshots live under `$HERDR_PLUGIN_STATE_DIR/snapshots/`, with the newest also at
-`.../last.json`.
+`.../last.json`. To recover from a skipped boot restore, pick the earlier snapshot
+with `node bin/restore.js --file <snapshot-path> --dry-run` before applying it;
+`last.json` may already reflect the bare panes. Never restore into a pane currently
+running an agent.
 
 ## Limitations (honest)
 
@@ -240,7 +248,7 @@ Snapshots live under `$HERDR_PLUGIN_STATE_DIR/snapshots/`, with the newest also 
   from the **agent CLI's own session store** keyed by the pane's cwd (claude:
   `~/.claude/projects/`, codex: `~/.codex/sessions/`, copilot:
   `~/.copilot/session-state/`, cursor: `~/.cursor/chats/`). Resume/continue flags
-  are known for claude, codex, gemini, copilot, cursor; unknown agents relaunch
+  are known for claude, pi, codex, gemini, copilot, cursor; unknown agents relaunch
   fresh (herdr's own `resume_agents_on_restore` may still rejoin the conversation).
 - **Layout geometry** is reconstructed from saved rects via sequential splits; simple
   rows/columns come back faithfully, deeply nested grids are approximated.
